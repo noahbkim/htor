@@ -1,0 +1,10 @@
+
+work.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <.text>:
+   0:	48 c7 c7 93 34 b0 17 	mov    $0x17b03493,%rdi
+   7:	48 c7 c4 bc 16 40 00 	mov    $0x4016bc,%rsp
+   e:	c3                   	retq   
