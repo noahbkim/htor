@@ -1,11 +1,8 @@
 @define name
-    01 02 03
-    ab ab ab
+    "hello" "#"
 
 @repeat 2
-    $name $name
+    00
 
-@assembly
-    mov $0x17b03493,%rdi
-    mov $0x00000000004016bc,%rsp
-    ret
+@repeat 2   # test
+    $name "world"  # test

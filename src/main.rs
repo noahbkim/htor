@@ -7,6 +7,7 @@ use std::fmt;
 use std::collections::HashMap;
 use std::iter::Enumerate;
 use std::process::{Command, Stdio};
+use core::iter;
 
 
 #[derive(Debug)]
@@ -127,7 +128,7 @@ fn decode_letter(cursor: &ParserCursor, letter: &char) -> Result<u8, ParserError
     }
 }
 
-fn decode_bytes(cursor: &ParserCursor, string: &str) -> Result<Vec<u8>, ParserError> {
+fn decode_bytes(cursor: &ParserCursor, string: &String) -> Result<Vec<u8>, ParserError> {
     let mut result: Vec<u8> = Vec::new();
     if string.len() % 2 != 0 {
         Err(ParserError::new("hex word has odd length", cursor.line_number))
@@ -142,25 +143,109 @@ fn decode_bytes(cursor: &ParserCursor, string: &str) -> Result<Vec<u8>, ParserEr
     }
 }
 
-fn get_defined(cursor: &ParserCursor, context: &mut ParserContext, name: &str) -> Result<Vec<u8>, ParserError> {
+fn decode_string(cursor: &ParserCursor, string: &String) -> Result<Vec<u8>, ParserError> {
+    let mut result: Vec<u8> = Vec::new();
+    for (i, character) in string.chars().enumerate() {
+        if character > (255 as char) {
+            return Err(ParserError::new(format!("encountered invalid character in column {}", i).as_str(), cursor.line_number));
+        } else {
+            result.push(character as u8);
+        }
+    }
+    Ok(result)
+}
+
+
+fn get_defined(cursor: &ParserCursor, context: &mut ParserContext, name: &String) -> Result<Vec<u8>, ParserError> {
     return match context.definitions.get(name) {
         None => Err(ParserError::new(format!("no definition for {}", name).as_str(), cursor.line_number)),
         Some(result) => Ok(result.clone()),
     }
 }
 
+enum ParserState {
+    None,
+    Bytes,
+    String,
+    StringEscaped,
+    Name,
+}
+
 fn parse_bytes(cursor: &mut ParserCursor, context: &mut ParserContext) -> Result<Vec<u8>, ParserError> {
     let mut result: Vec<u8> = Vec::new();
-    for word in cursor.line.split_ascii_whitespace() {
-        match word.chars().next() {
-            None => {},
-            Some(char) => result.extend(match char {
-                '$' => get_defined(cursor, context, word.trim_start_matches('$'))?,
-                _ => decode_bytes(cursor, word)?,
-            }),
-        };
+    let mut buffer: String = String::new();
+    let mut state: ParserState = ParserState::None;
+
+    for character in cursor.line.chars().chain(iter::once('\n')) {
+        match state {
+            ParserState::None => {
+                if character == '"' {
+                    state = ParserState::String;
+                } else if character == '$' {
+                    state = ParserState::Name;
+                } else if character == '#' {
+                    break;
+                } else if !character.is_ascii_whitespace() {
+                    state = ParserState::Bytes;
+                    buffer.push(character);
+                }
+            },
+            ParserState::Bytes => {
+                if character.is_ascii_whitespace() || character == '#' {
+                    result.extend(decode_bytes(cursor, &buffer)?);
+                    buffer.clear();
+                    if character == '#' {
+                        break;
+                    } else {
+                        state = ParserState::None;
+                    }
+                } else {
+                    buffer.push(character);
+                }
+            },
+            ParserState::String => {
+                if character == '\\' {
+                    state = ParserState::StringEscaped;
+                } else if character == '"' {
+                    result.extend(decode_string(cursor, &buffer)?);
+                    buffer.clear();
+                    state = ParserState::None;
+                } else {
+                    buffer.push(character);
+                }
+            },
+            ParserState::StringEscaped => {
+                if character == '\\' {
+                    result.push('\\' as u8);
+                    state = ParserState::String;
+                } else if character == '"' {
+                    result.push('"' as u8);
+                    state = ParserState::String;
+                } else {
+                    return Err(ParserError::new(format!("invalid escape sequence \\{}", character).as_str(), cursor.line_number));
+                }
+            },
+            ParserState::Name => {
+                if character.is_ascii_whitespace() || character == '#' {
+                    result.extend(get_defined(cursor, context, &buffer)?);
+                    buffer.clear();
+                    if character == '#' {
+                        break;
+                    } else {
+                        state = ParserState::None;
+                    }
+                } else {
+                    buffer.push(character);
+                }
+            }
+        }
     }
-    Ok(result)
+
+    if buffer.len() > 0 {
+        Err(ParserError::new("unexpected end of line", cursor.line_number))
+    } else {
+        Ok(result)
+    }
 }
 
 fn parse_repeat(args: Vec<&str>, cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError> {
@@ -256,7 +341,9 @@ fn parse(mut cursor: &mut ParserCursor, context: &mut ParserContext, level: usiz
     while on_indentation_level(cursor, context, level)? {
         cursor.line = String::from(cursor.line.trim());
         if cursor.line.starts_with("@") {
-            let line: String = cursor.line.clone();
+            let mut line: String = cursor.line.clone();
+            line.find('#').map(|index| line.replace_range(index.., ""));
+
             let words: Vec<&str> = line.split_ascii_whitespace().collect();
             let (head, tail) = words.split_at(1);
             match head.first() {
