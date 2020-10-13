@@ -1,15 +1,12 @@
-define name:
-    asdf
+@define name
+    01 02 03
 
-repeat 123:
-    a2 42 01 [name]
+@repeat 2
+    $name
 
-assembly:
+@assembly
     mov $0x17b03493,%rdi
     mov $0x00000000004016bc,%rsp
     ret
 
-02 04 0a 12 14 05
-
-include:
-    file.txt
+@include file.txt

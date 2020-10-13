@@ -1,1 +1,6 @@
-01 02 03 04
+@define name
+    01 02 03
+    ab ab ab
+
+@repeat 2
+    $name $name
