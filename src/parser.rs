@@ -204,60 +204,73 @@ fn parse_bytes(
     let mut buffer: String = String::new();
     let mut state: ParserState = ParserState::None;
 
+    let mut flip: bool = false;
+    let mut flip_container: Vec<u8> = Vec::new();
+
     for character in cursor.line.chars().chain(once('\n')) {
         match state {
-            ParserState::None => {
-                if character == '"' {
-                    state = ParserState::String;
-                } else if character == '$' {
-                    state = ParserState::Name;
-                } else if character == '#' {
-                    break;
-                } else if !character.is_ascii_whitespace() {
+            ParserState::None => match character {
+                '"' => state = ParserState::String,
+                '$' => state = ParserState::Name,
+                '#' => break,
+                '>' => flip = false,
+                '<' => flip = true,
+                '\t' | '\n' | '\x0C' | '\r' | ' ' => {},
+                _ => {
                     state = ParserState::Bytes;
                     buffer.push(character);
                 }
             }
-            ParserState::Bytes => {
-                if character.is_ascii_whitespace() || character == '#' {
-                    result.extend(decode_bytes(cursor, &buffer)?);
-                    buffer.clear();
-                    if character == '#' {
-                        break;
+            ParserState::Bytes => match character {
+                '\t' | '\n' | '\x0C' | '\r' | ' ' | '#' | '>' | '<' => {
+                    let decoded: Vec<u8> = decode_bytes(cursor, &buffer)?;
+                    if flip {
+                        flip_container.extend(decoded);
                     } else {
-                        state = ParserState::None;
+                        result.extend(decoded);
                     }
-                } else {
-                    buffer.push(character);
-                }
-            }
-            ParserState::String => {
-                if character == '\\' {
-                    state = ParserState::StringEscaped;
-                } else if character == '"' {
-                    result.extend(decode_string(cursor, &buffer)?);
                     buffer.clear();
                     state = ParserState::None;
-                } else {
-                    buffer.push(character);
+
+                    match character {
+                        '#' => break,
+                        '>' => flip = false,
+                        '<' => flip = true,
+                        _ => {}
+                    }
                 }
+                _ => buffer.push(character),
             }
-            ParserState::StringEscaped => {
-                if character == '\\' {
+            ParserState::String => match character {
+                '\\' => state = ParserState::StringEscaped,
+                '"' => {
+                    let decoded: Vec<u8> = decode_string(cursor, &buffer)?;
+                    if flip {
+                        flip_container.extend(decoded);
+                    } else {
+                        result.extend(decoded);
+                    }
+                    buffer.clear();
+                    state = ParserState::None;
+                }
+                _ => buffer.push(character)
+            }
+            ParserState::StringEscaped => match character {
+                '\\' => {
                     result.push('\\' as u8);
                     state = ParserState::String;
-                } else if character == '"' {
+                }
+                '"' => {
                     result.push('"' as u8);
                     state = ParserState::String;
-                } else {
-                    return Err(ParserError::new(
-                        format!("invalid escape sequence \\{}", character).as_str(),
-                        cursor.line_number,
-                    ));
                 }
+                _ => return Err(ParserError::new(
+                    format!("invalid escape sequence \\{}", character).as_str(),
+                    cursor.line_number,
+                )),
             }
-            ParserState::Name => {
-                if character.is_ascii_whitespace() || character == '#' {
+            ParserState::Name => match character {
+                '\t' | '\n' | '\x0C' | '\r' | ' ' | '#' => {
                     result.extend(get_defined(cursor, context, &buffer)?);
                     buffer.clear();
                     if character == '#' {
@@ -265,7 +278,8 @@ fn parse_bytes(
                     } else {
                         state = ParserState::None;
                     }
-                } else {
+                }
+                _ => {
                     buffer.push(character);
                 }
             }

@@ -2,7 +2,7 @@
     01 02 03
 
 @repeat 2
-    $name
+    < $name
 
 @assembly
     mov $0x17b03493,%rdi
