@@ -1,6 +1,6 @@
 use std::fs::{File};
-use std::io::{BufRead, BufReader, Lines, Write};
-use std::env;
+use std::io::{BufRead, BufReader, Lines, Write, Stdout};
+use std::{env, io};
 use std::process;
 use std::error::Error;
 use std::fmt;
@@ -406,10 +406,7 @@ fn main() {
 
     match read(&args[1]) {
         Ok(result) => {
-            eprintln!("{}", debug_bytes(&result));
-            let mut string: String = String::new();
-            result.iter().for_each(|byte| string.push(*byte as char));
-            println!("{}", string);
+            io::stdout().write(result.as_ref());
             process::exit(0);
         },
         Err(error) => {
