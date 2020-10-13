@@ -1,11 +1,12 @@
 use std::fs::{File};
-use std::io::{BufRead, BufReader, Lines};
+use std::io::{BufRead, BufReader, Lines, Write};
 use std::env;
 use std::process;
 use std::error::Error;
 use std::fmt;
 use std::collections::HashMap;
 use std::iter::Enumerate;
+use std::process::{Command, Stdio};
 
 
 #[derive(Debug)]
@@ -90,7 +91,7 @@ fn count_at_start(expected: char, disallowed: char, cursor: &ParserCursor) -> Re
 fn infer_indentation_level(cursor: &ParserCursor, context: &mut ParserContext) -> Result<usize, ParserError> {
     match context.indentation {
         Some(Indentation::Spaces(count)) => {
-            let mut result: usize = count_at_start(' ', '\t', &cursor)?;
+            let result: usize = count_at_start(' ', '\t', &cursor)?;
             if result % count != 0 {
                 return Err(ParserError::new("incorrect indentation", cursor.line_number))
             }
@@ -135,7 +136,6 @@ fn decode_bytes(cursor: &ParserCursor, string: &str) -> Result<Vec<u8>, ParserEr
         for i in 0..(collected.len() / 2) {
             let high: u8 = decode_letter(cursor, collected.get(i * 2).unwrap())?;
             let low: u8 = decode_letter(cursor, collected.get(i * 2 + 1).unwrap())?;
-            println!("{} {}", high, low);
             result.push((high << 4) + low);
         }
         Ok(result)
@@ -149,7 +149,7 @@ fn get_defined(cursor: &ParserCursor, context: &mut ParserContext, name: &str) -
     }
 }
 
-fn parse_bytes(mut cursor: &mut ParserCursor, context: &mut ParserContext) -> Result<Vec<u8>, ParserError> {
+fn parse_bytes(cursor: &mut ParserCursor, context: &mut ParserContext) -> Result<Vec<u8>, ParserError> {
     let mut result: Vec<u8> = Vec::new();
     for word in cursor.line.split_ascii_whitespace() {
         match word.chars().next() {
@@ -163,21 +163,21 @@ fn parse_bytes(mut cursor: &mut ParserCursor, context: &mut ParserContext) -> Re
     Ok(result)
 }
 
-fn parse_repeat(args: Vec<&str>, mut cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError> {
+fn parse_repeat(args: Vec<&str>, cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError> {
     match args.first() {
         None => Err(ParserError::new("expected exactly one argument indicating repetition count", cursor.line_number)),
         Some(arg) => {
             if !cursor.advance()? {
                 return Ok(Vec::<u8>::new())
             }
-            let count: usize = arg.parse::<usize>().map_err(|e| ParserError::new(format!("invalid repetition count {}", arg).as_str(), cursor.line_number))?;
+            let count: usize = arg.parse::<usize>().map_err(|_e| ParserError::new(format!("invalid repetition count {}", arg).as_str(), cursor.line_number))?;
             let contents: Vec<u8> = parse(cursor, context, level + 1)?;
             Ok(contents.repeat(count))
         }
     }
 }
 
-fn parse_define(args: Vec<&str>, mut cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError> {
+fn parse_define(args: Vec<&str>, cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError> {
     match args.first() {
         None => return Err(ParserError::new("expected exactly one argument indicating definition name", cursor.line_number)),
         Some(arg) => {
@@ -192,16 +192,68 @@ fn parse_define(args: Vec<&str>, mut cursor: &mut ParserCursor, context: &mut Pa
     Ok(Vec::<u8>::new())
 }
 
-fn parse(mut cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError>  {
-    let mut result: Vec<u8> = Vec::new();
-    loop {
-        let indentation_level: usize = infer_indentation_level(cursor, context)?;
-        if indentation_level < level {
+fn on_indentation_level(cursor: &ParserCursor, context: &mut ParserContext, level: usize) -> Result<bool, ParserError> {
+    let indentation_level: usize = infer_indentation_level(cursor, context)?;
+    if indentation_level < level {
+        Ok(false)
+    } else if indentation_level > level {
+        Err(ParserError::new(format!("expected indentation {}, found {}", level, indentation_level).as_str(), cursor.line_number))
+    } else {
+        Ok(true)
+    }
+}
+
+fn parse_raw(cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<String, ParserError> {
+    let mut result: String = String::new();
+    while on_indentation_level(cursor, context, level)? {
+        result.push_str(cursor.line.trim_start());
+        result.push('\n');
+        if !cursor.advance()? {
             break;
-        } else if indentation_level > level {
-            return Err(ParserError::new(format!("expected indentation {}, found {}", level, indentation_level).as_str(), cursor.line_number));
+        }
+    }
+    Ok(result)
+}
+
+fn parse_assembly(_args: Vec<&str>, cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError> {
+    if !cursor.advance()? {
+        Ok(Vec::<u8>::new())
+    } else {
+        let assembly = parse_raw(cursor, context, level + 1)?;
+        let file = tempfile::NamedTempFile::new().map_err(|e| ParserError::new(format!("error creating temporary file: {}", e).as_str(), cursor.line_number))?;
+        let mut child = Command::new("gcc")
+            .arg("-c")  // Compile assembly
+            .arg("-o")  // Output file path
+            .arg(file.path().to_str().unwrap())
+            .arg("-x")  // Read from STDIN
+            .arg("assembler")
+            .arg("-")
+            .stdin(Stdio::piped())
+            .spawn()
+            .map_err(|e| ParserError::new(format!("failed to run gcc: {}", e).as_str(), cursor.line_number))?;
+
+        {
+            let stdin = child.stdin.as_mut().ok_or(ParserError::new("failed to communicate with gcc process", cursor.line_number))?;
+            stdin.write_all(assembly.as_bytes()).map_err(|e| ParserError::new(format!("failed to write assembly to gcc pipe: {}", e).as_str(), cursor.line_number))?;
         }
 
+        let output = child.wait_with_output().map_err(|e| ParserError::new(format!("error while awaiting gcc: {}", e).as_str(), cursor.line_number))?;
+        if !output.status.success() {
+            return Err(ParserError::new("compilation of assembly failed", cursor.line_number));
+        }
+        let file = elf::File::open_path(file.path())
+            .map_err(|e| ParserError::new(format!("failed to open elf file: {:?}", e).as_str(), cursor.line_number))?;
+        let text = match file.get_section(".text") {
+            Some(section) => section,
+            None => return Err(ParserError::new("failed to find .text in elf file", cursor.line_number)),
+        };
+        Ok(text.data.clone())
+    }
+}
+
+fn parse(mut cursor: &mut ParserCursor, context: &mut ParserContext, level: usize) -> Result<Vec<u8>, ParserError>  {
+    let mut result: Vec<u8> = Vec::new();
+    while on_indentation_level(cursor, context, level)? {
         cursor.line = String::from(cursor.line.trim());
         if cursor.line.starts_with("@") {
             let line: String = cursor.line.clone();
@@ -211,6 +263,7 @@ fn parse(mut cursor: &mut ParserCursor, context: &mut ParserContext, level: usiz
                 None => return Err(ParserError::new("macro lines must contain a command before the colon", cursor.line_number)),
                 Some(&"@repeat") => result.extend(parse_repeat(tail.to_vec(), cursor, context, level)?),
                 Some(&"@define") => result.extend(parse_define(tail.to_vec(), cursor, context, level)?),
+                Some(&"@assembly") => result.extend(parse_assembly(tail.to_vec(), cursor, context, level)?),
                 Some(command) => return Err(ParserError::new(format!("unknown command: {}", command).as_str(), cursor.line_number)),
             };
         } else {
@@ -233,8 +286,28 @@ fn read(path: &str) -> Result<Vec<u8>, ParserError> {
     let reader: BufReader<File> = BufReader::new(file);
     let mut cursor: ParserCursor = ParserCursor::new(reader.lines().enumerate());
     let mut context: ParserContext = ParserContext::new();
-    cursor.advance();
+    cursor.advance()?;
     parse(&mut cursor, &mut context, 0)
+}
+
+
+fn encode_digit(digit: u8) -> char {
+    match digit {
+        0..=9 => (digit + ('0' as u8)) as char,
+        10..=15 => (digit - 10 + ('A' as u8)) as char,
+        _ => '?',
+    }
+}
+
+fn debug_bytes(bytes: &Vec<u8>) -> String {
+    let mut result: String = String::new();
+    for byte in bytes.iter() {
+        result.push_str("0x");
+        result.push(encode_digit(byte >> 4));
+        result.push(encode_digit(byte & 0xF));
+        result.push(' ');
+    }
+    result
 }
 
 fn main() {
@@ -246,7 +319,10 @@ fn main() {
 
     match read(&args[1]) {
         Ok(result) => {
-            println!("{:x?}", result);
+            eprintln!("{}", debug_bytes(&result));
+            let mut string: String = String::new();
+            result.iter().for_each(|byte| string.push(*byte as char));
+            println!("{}", string);
             process::exit(0);
         },
         Err(error) => {
