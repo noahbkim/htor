@@ -223,19 +223,19 @@ fn parse_bytes(
                         reverse_tail(&mut result, start);
                         flip = None;
                     }
-                },
+                }
                 '<' => {
                     if let Some(start) = flip {
                         reverse_tail(&mut result, start);
                     }
                     flip = Some(result.len());
-                },
-                '\t' | '\n' | '\x0C' | '\r' | ' ' => {},
+                }
+                '\t' | '\n' | '\x0C' | '\r' | ' ' => {}
                 _ => {
                     state = ParserState::Bytes;
                     buffer.push(character);
                 }
-            }
+            },
             ParserState::Bytes => match character {
                 '\t' | '\n' | '\x0C' | '\r' | ' ' | '#' | '>' | '<' => {
                     result.extend(decode_bytes(cursor, &buffer)?);
@@ -249,18 +249,18 @@ fn parse_bytes(
                                 reverse_tail(&mut result, start);
                                 flip = None;
                             }
-                        },
+                        }
                         '<' => {
                             if let Some(start) = flip {
                                 reverse_tail(&mut result, start);
                             }
                             flip = Some(result.len());
-                        },
+                        }
                         _ => {}
                     }
                 }
                 _ => buffer.push(character),
-            }
+            },
             ParserState::String => match character {
                 '\\' => state = ParserState::StringEscaped,
                 '"' => {
@@ -268,8 +268,8 @@ fn parse_bytes(
                     buffer.clear();
                     state = ParserState::None;
                 }
-                _ => buffer.push(character)
-            }
+                _ => buffer.push(character),
+            },
             ParserState::StringEscaped => match character {
                 '\\' => {
                     result.push('\\' as u8);
@@ -279,11 +279,13 @@ fn parse_bytes(
                     result.push('"' as u8);
                     state = ParserState::String;
                 }
-                _ => return Err(ParserError::new(
-                    format!("invalid escape sequence \\{}", character).as_str(),
-                    cursor.line_number,
-                )),
-            }
+                _ => {
+                    return Err(ParserError::new(
+                        format!("invalid escape sequence \\{}", character).as_str(),
+                        cursor.line_number,
+                    ))
+                }
+            },
             ParserState::Name => match character {
                 '\t' | '\n' | '\x0C' | '\r' | ' ' | '#' => {
                     result.extend(get_defined(cursor, context, &buffer)?);
@@ -297,7 +299,7 @@ fn parse_bytes(
                 _ => {
                     buffer.push(character);
                 }
-            }
+            },
         }
     }
 
