@@ -212,24 +212,28 @@ fn parse_bytes(
     let mut state: ParserState = ParserState::None;
     let mut flip: Option<usize> = None;
 
+    fn set_flip(flip: &mut Option<usize>, mut result: &mut Vec<u8>) {
+        if let Some(start) = flip {
+            reverse_tail(&mut result, *start);
+        }
+        *flip = Some(result.len());
+    };
+
+    fn unset_flip(flip: &mut Option<usize>, mut result: &mut Vec<u8>) {
+        if let Some(start) = flip {
+            reverse_tail(&mut result, *start);
+            *flip = None;
+        }
+    };
+
     for character in cursor.line.chars().chain(once('\n')) {
         match state {
             ParserState::None => match character {
                 '"' => state = ParserState::String,
                 '$' => state = ParserState::Name,
                 '#' => break,
-                '>' => {
-                    if let Some(start) = flip {
-                        reverse_tail(&mut result, start);
-                        flip = None;
-                    }
-                }
-                '<' => {
-                    if let Some(start) = flip {
-                        reverse_tail(&mut result, start);
-                    }
-                    flip = Some(result.len());
-                }
+                '>' => unset_flip(&mut flip, &mut result),
+                '<' => set_flip(&mut flip, &mut result),
                 '\t' | '\n' | '\x0C' | '\r' | ' ' => {}
                 _ => {
                     state = ParserState::Bytes;
@@ -241,21 +245,10 @@ fn parse_bytes(
                     result.extend(decode_bytes(cursor, &buffer)?);
                     buffer.clear();
                     state = ParserState::None;
-
                     match character {
                         '#' => break,
-                        '>' => {
-                            if let Some(start) = flip {
-                                reverse_tail(&mut result, start);
-                                flip = None;
-                            }
-                        }
-                        '<' => {
-                            if let Some(start) = flip {
-                                reverse_tail(&mut result, start);
-                            }
-                            flip = Some(result.len());
-                        }
+                        '>' => unset_flip(&mut flip, &mut result),
+                        '<' => set_flip(&mut flip, &mut result),
                         _ => {}
                     }
                 }
@@ -273,6 +266,18 @@ fn parse_bytes(
             ParserState::StringEscaped => match character {
                 '\\' => {
                     result.push('\\' as u8);
+                    state = ParserState::String;
+                }
+                'n' => {
+                    result.push('\n' as u8);
+                    state = ParserState::String;
+                }
+                'r' => {
+                    result.push('\r' as u8);
+                    state = ParserState::String;
+                }
+                't' => {
+                    result.push('\t' as u8);
                     state = ParserState::String;
                 }
                 '"' => {
@@ -303,10 +308,7 @@ fn parse_bytes(
         }
     }
 
-    if let Some(start) = flip {
-        reverse_tail(&mut result, start)
-    }
-
+    unset_flip(&mut flip, &mut result);
     if buffer.len() > 0 {
         Err(ParserError::new(
             "unexpected end of line",
