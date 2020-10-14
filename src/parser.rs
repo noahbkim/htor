@@ -196,6 +196,13 @@ enum ParserState {
     Name,
 }
 
+fn reverse_tail(vector: &mut Vec<u8>, from: usize) {
+    let length = vector.len();
+    for i in 0..(length - from) / 2 {
+        vector.swap(from + i, length - 1 - i);
+    }
+}
+
 fn parse_bytes(
     cursor: &mut ParserCursor,
     context: &mut ParserContext,
@@ -203,9 +210,7 @@ fn parse_bytes(
     let mut result: Vec<u8> = Vec::new();
     let mut buffer: String = String::new();
     let mut state: ParserState = ParserState::None;
-
-    let mut flip: bool = false;
-    let mut flip_container: Vec<u8> = Vec::new();
+    let mut flip: Option<usize> = None;
 
     for character in cursor.line.chars().chain(once('\n')) {
         match state {
@@ -213,8 +218,18 @@ fn parse_bytes(
                 '"' => state = ParserState::String,
                 '$' => state = ParserState::Name,
                 '#' => break,
-                '>' => flip = false,
-                '<' => flip = true,
+                '>' => {
+                    if let Some(start) = flip {
+                        reverse_tail(&mut result, start);
+                        flip = None;
+                    }
+                },
+                '<' => {
+                    if let Some(start) = flip {
+                        reverse_tail(&mut result, start);
+                    }
+                    flip = Some(result.len());
+                },
                 '\t' | '\n' | '\x0C' | '\r' | ' ' => {},
                 _ => {
                     state = ParserState::Bytes;
@@ -223,19 +238,24 @@ fn parse_bytes(
             }
             ParserState::Bytes => match character {
                 '\t' | '\n' | '\x0C' | '\r' | ' ' | '#' | '>' | '<' => {
-                    let decoded: Vec<u8> = decode_bytes(cursor, &buffer)?;
-                    if flip {
-                        flip_container.extend(decoded);
-                    } else {
-                        result.extend(decoded);
-                    }
+                    result.extend(decode_bytes(cursor, &buffer)?);
                     buffer.clear();
                     state = ParserState::None;
 
                     match character {
                         '#' => break,
-                        '>' => flip = false,
-                        '<' => flip = true,
+                        '>' => {
+                            if let Some(start) = flip {
+                                reverse_tail(&mut result, start);
+                                flip = None;
+                            }
+                        },
+                        '<' => {
+                            if let Some(start) = flip {
+                                reverse_tail(&mut result, start);
+                            }
+                            flip = Some(result.len());
+                        },
                         _ => {}
                     }
                 }
@@ -244,12 +264,7 @@ fn parse_bytes(
             ParserState::String => match character {
                 '\\' => state = ParserState::StringEscaped,
                 '"' => {
-                    let decoded: Vec<u8> = decode_string(cursor, &buffer)?;
-                    if flip {
-                        flip_container.extend(decoded);
-                    } else {
-                        result.extend(decoded);
-                    }
+                    result.extend(decode_string(cursor, &buffer)?);
                     buffer.clear();
                     state = ParserState::None;
                 }
@@ -284,6 +299,10 @@ fn parse_bytes(
                 }
             }
         }
+    }
+
+    if let Some(start) = flip {
+        reverse_tail(&mut result, start)
     }
 
     if buffer.len() > 0 {
