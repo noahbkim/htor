@@ -3,6 +3,7 @@ use std::io::{stdout, BufRead, BufReader, Write};
 use std::process::exit;
 
 mod parser;
+
 use clap::{App, Arg};
 use parser::{parse, ParserContext, ParserCursor, ParserError};
 
@@ -81,14 +82,15 @@ fn main() {
     };
 
     if matches.is_present("debug") {
-        println!("{}", debug_bytes(&bytes))
+        println!("{}", debug_bytes(&bytes));
     } else {
-        match stdout().write(bytes.as_ref()) {
-            Ok(_size) => exit(0),
-            Err(e) => {
-                eprintln!("error while writing bytes to stdout: {}", e);
-                exit(1);
-            }
+        if let Err(e) = stdout().write_all(bytes.as_ref()) {
+            eprintln!("error while writing bytes to stdout: {}", e);
+            exit(1);
+        }
+        if let Err(e) = stdout().flush() {
+            eprintln!("error while writing bytes to stdout: {}", e);
+            exit(1);
         }
     }
 }
