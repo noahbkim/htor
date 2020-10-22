@@ -5,12 +5,13 @@ use std::process::exit;
 mod parser;
 
 use clap::{App, Arg};
-use parser::{parse, ParserContext, ParserCursor, ParserError};
+use parser::{parse, ParserContext, ParserCursor};
+use parser::error::RuntimeError;
 
-fn read(path: &str) -> Result<Vec<u8>, ParserError> {
+fn read(path: &str) -> Result<Vec<u8>, RuntimeError> {
     let file = match File::open(&path) {
         Ok(file) => file,
-        Err(_) => return Err(ParserError::new("error reading file!", 0)),
+        Err(_) => return Err(RuntimeError::new("error reading file!", 0)),
     };
 
     let reader: BufReader<File> = BufReader::new(file);

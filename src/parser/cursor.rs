@@ -1,8 +1,8 @@
 use std::fs::File;
-use std::io::{BufReader, Lines, Write};
-use std::iter::{once, Enumerate};
+use std::io::{BufReader, Lines};
+use std::iter::{Enumerate};
 
-use super::error::ParserError;
+use crate::parser::error::RuntimeError;
 
 pub type EnumeratedLines = Enumerate<Lines<BufReader<File>>>;
 
@@ -21,11 +21,11 @@ impl ParserCursor {
         }
     }
 
-    pub fn advance(&mut self) -> Result<bool, ParserError> {
+    pub fn advance(&mut self) -> Result<bool, RuntimeError> {
         match self.lines.next() {
             None => Ok(false),
             Some((line_number, line_result)) => match line_result {
-                Err(_) => Err(ParserError::new("failed to read line".to_string(), line_number)),
+                Err(_) => Err(RuntimeError::new(line_number, "failed to read line".to_string())),
                 Ok(line) => {
                     self.line = line;
                     self.line_number = line_number;
@@ -35,7 +35,7 @@ impl ParserCursor {
         }
     }
 
-    pub fn error(&self, what: String) -> ParserError {
-        ParserError::new(what, self.line_number)
+    pub fn error(&self, what: String) -> RuntimeError {
+        RuntimeError::new(self.line_number, what)
     }
 }

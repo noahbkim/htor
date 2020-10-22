@@ -1,8 +1,6 @@
 use std::iter::once;
 
-use super::Parser;
 use super::decode::{decode_bytes, decode_string};
-use super::error::ParserError;
 use crate::parser::scope::ParserScope;
 use crate::parser::error::AnonymousRuntimeError;
 
@@ -30,43 +28,45 @@ pub struct BytesParser<'a> {
     flip: Option<usize>,
 }
 
-impl BytesParser {
-    pub fn parse(line: &String, scope: &ParserScope) -> Result<Vec<u8>, AnonymousRuntimeError> {
-        let parser = Self {
+impl<'a> BytesParser<'a> {
+    pub fn parse(line: &String, scope: &'a ParserScope) -> Result<Vec<u8>, AnonymousRuntimeError> {
+        let mut parser = Self {
             result: Vec::new(),
             buffer: String::new(),
             state: BytesParserState::None,
             scope: &scope,
             flip: None,
         };
-        parser.parse(line);
+        parser.main(line);
         Ok(parser.result)
     }
 
     fn set_flip(&mut self) {
         if let Some(start) = self.flip {
-            reverse_tail(&mut self.result, *start);
+            reverse_tail(&mut self.result, start);
         }
-        *flip = Some(self.result.len());
+        self.flip = Some(self.result.len());
     }
 
     fn unset_flip(&mut self) {
         if let Some(start) = self.flip {
-            reverse_tail(&mut self.result, *start);
-            *self.flip = None;
+            reverse_tail(&mut self.result, start);
+            self.flip = None;
         }
     }
 
-    fn terminate_bytes(&mut self) {
+    fn terminate_bytes(&mut self) -> Result<(), AnonymousRuntimeError> {
         self.result.extend(decode_bytes(&self.buffer)?);
         self.buffer.clear();
         self.state = BytesParserState::None;
+        Ok(())
     }
 
-    fn terminate_string(&mut self) {
+    fn terminate_string(&mut self) -> Result<(), AnonymousRuntimeError> {
         self.result.extend(decode_string(&self.buffer)?);
         self.buffer.clear();
         self.state = BytesParserState::None;
+        Ok(())
     }
 
     fn terminate_name(&mut self) -> Result<(), AnonymousRuntimeError> {
@@ -100,24 +100,24 @@ impl BytesParser {
                     }
                 },
                 BytesParserState::Bytes => match character {
-                    '\t' | '\n' | '\x0C' | '\r' | ' ' => self.terminate_bytes(),
+                    '\t' | '\n' | '\x0C' | '\r' | ' ' => self.terminate_bytes()?,
                     '#' => {
-                        self.terminate_bytes();
+                        self.terminate_bytes()?;
                         break;
                     }
                     '>' => {
-                        self.terminate_bytes();
+                        self.terminate_bytes()?;
                         self.unset_flip();
                     },
                     '<' => {
-                        self.terminate_bytes();
+                        self.terminate_bytes()?;
                         self.set_flip();
                     },
                     _ => self.buffer.push(character),
                 },
                 BytesParserState::String => match character {
                     '\\' => self.state = BytesParserState::StringEscaped,
-                    '"' => self.terminate_string(),
+                    '"' => self.terminate_string()?,
                     _ => self.buffer.push(character),
                 },
                 BytesParserState::StringEscaped => match character {
@@ -129,9 +129,9 @@ impl BytesParser {
                     _ => return Err(AnonymousRuntimeError::new(format!("invalid escape sequence \\{}", character)))
                 }
                 BytesParserState::Name => match character {
-                    '\t' | '\n' | '\x0C' | '\r' | ' ' => self.terminate_name(),
+                    '\t' | '\n' | '\x0C' | '\r' | ' ' => self.terminate_name()?,
                     '#' => {
-                        self.terminate_name();
+                        self.terminate_name()?;
                         break;
                     }
                     _ => buffer.push(character)

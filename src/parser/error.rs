@@ -24,34 +24,35 @@ impl fmt::Display for ParserError {
 
 pub struct AnonymousRuntimeError {
     what: String,
-    column: usize,
 }
 
 impl AnonymousRuntimeError {
-    pub fn new(what: String, column: usize) -> Self {
-        Self { what, column }
+    pub fn new(what: String) -> Self {
+        Self { what }
     }
 
-    pub fn at(self, line: usize, column_offset: usize) -> RuntimeError {
-        RuntimeError {
-            what: self.what,
-            line,
-            column: self.column + column_offset,
-        }
+    pub fn at(self, line: usize) -> RuntimeError {
+        RuntimeError::new(line, self.what)
     }
 }
+
 
 #[derive(Debug)]
 pub struct RuntimeError {
     what: String,
     line: usize,
-    column: usize,
 }
 
 impl Error for RuntimeError {}
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}.{}: {}", self.line, self.column, self.what)
+        write!(f, "Runtime error on line {}: {}", self.line, self.what)
+    }
+}
+
+impl RuntimeError {
+    pub fn new(line: usize, what: String) -> Self {
+        RuntimeError { what, line }
     }
 }

@@ -1,5 +1,5 @@
 use super::cursor::ParserCursor;
-use super::error::ParserError;
+use crate::parser::error::RuntimeError;
 
 pub enum Indentation {
     Spaces(usize),
@@ -14,16 +14,13 @@ fn count_at_start(
     expected: char,
     disallowed: char,
     cursor: &ParserCursor,
-) -> Result<usize, ParserError> {
+) -> Result<usize, RuntimeError> {
     let mut result: usize = 0;
     for c in cursor.line.chars() {
         if c == expected {
             result += 1;
         } else if c == disallowed {
-            return Err(ParserError::new(
-                "encountered mixed tabs and spaces",
-                cursor.line_number,
-            ));
+            return Err(cursor.error("encountered mixed tabs and spaces".to_string()));
         } else {
             break;
         }
@@ -38,12 +35,12 @@ impl ParserIndentation {
         }
     }
 
-    pub fn determine_level(&mut self, cursor: &ParserCursor) -> Result<usize, ParserError> {
+    pub fn determine_level(&mut self, cursor: &ParserCursor) -> Result<usize, RuntimeError> {
         match self.indentation {
             Some(Indentation::Spaces(count)) => {
                 let result: usize = count_at_start(' ', '\t', &cursor)?;
                 if result % count != 0 {
-                    return Err(ParserError::new("uneven indentation", cursor.line_number));
+                    return Err(cursor.error("uneven indentation".to_string()));
                 }
                 Ok(result / count)
             }

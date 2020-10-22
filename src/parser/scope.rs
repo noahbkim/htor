@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use super::error::ParserError;
-
 pub struct ParserScope {
     definitions: Vec<HashMap<String, Vec<u8>>>,
 }
