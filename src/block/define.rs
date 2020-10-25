@@ -10,10 +10,7 @@ pub struct DefineBlock {
 
 impl Block for DefineBlock {
     fn evaluate(&self, evaluator: &mut Evaluator) -> Result<Vec<u8>, EvaluationError> {
-        let mut result: Vec<u8> = Vec::new();
-        for block in self.blocks.iter() {
-            result.extend(block.evaluate(evaluator)?)
-        }
+        let result: Vec<u8> = evaluator.evaluate(&self.blocks)?;
         evaluator.scope.set(self.name.clone(), result);
         Ok(Vec::new())
     }

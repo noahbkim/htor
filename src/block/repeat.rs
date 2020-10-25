@@ -14,7 +14,7 @@ impl Block for RepeatBlock {
         for block in self.blocks.iter() {
             result.extend(block.evaluate(evaluator)?)
         }
-        Ok(result)
+        Ok(result.repeat(self.repeat_count))
     }
 }
 

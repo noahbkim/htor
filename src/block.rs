@@ -7,7 +7,7 @@ use crate::error::EvaluationError;
 use crate::evaluator::Evaluator;
 
 pub trait Block {
-    fn evaluate(&self, parser: &mut Evaluator) -> Result<Vec<u8>, EvaluationError>;
+    fn evaluate(&self, evaluator: &mut Evaluator) -> Result<Vec<u8>, EvaluationError>;
 }
 
 pub trait MacroBlock {

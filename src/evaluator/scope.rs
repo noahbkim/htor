@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 
 pub struct EvaluatorScope {
+    level: usize,
     root: HashMap<String, Vec<u8>>,
     stack: Vec<HashMap<String, Vec<u8>>>,
 }
@@ -9,13 +9,17 @@ pub struct EvaluatorScope {
 impl EvaluatorScope {
     pub fn new() -> Self {
         Self {
+            level: 0,
             root: HashMap::new(),
             stack: Vec::new(),
         }
     }
 
     pub fn push(&mut self) {
-        self.stack.push(HashMap::new());
+        if self.level != 0 {
+            self.stack.push(HashMap::new());
+        }
+        self.level += 1;
     }
 
     pub fn set(&mut self, name: String, value: Vec<u8>) {
@@ -25,17 +29,20 @@ impl EvaluatorScope {
         };
     }
 
-    pub fn get(&self, name: &String) -> Option<Vec<u8>> {
+    pub fn get(&self, name: &String) -> Option<&Vec<u8>> {
         for scope in self.stack.iter().rev() {
             match scope.get(name) {
                 None => {},
-                Some(result) => return Some(result.clone()),
+                Some(result) => return Some(result),
             };
         }
-        None
+        self.root.get(name)
     }
 
     pub fn pop(&mut self) {
-        self.stack.pop();
+        if self.level > 0 {
+            self.stack.pop();
+        }
+        self.level -= 1;
     }
 }

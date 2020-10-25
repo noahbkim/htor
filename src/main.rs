@@ -1,7 +1,3 @@
-// use std::fs::File;
-// use std::io::{stdout, BufRead, BufReader, Write};
-// use std::process::exit;
-
 mod parser;
 mod block;
 mod evaluator;
@@ -13,6 +9,7 @@ use std::io::{BufReader, stdout, Write};
 use std::fs::File;
 use clap::{App, Arg};
 use std::process::exit;
+use crate::evaluator::evaluate;
 
 
 fn read(path: &str) -> Result<Vec<u8>, EvaluationError> {
@@ -23,7 +20,8 @@ fn read(path: &str) -> Result<Vec<u8>, EvaluationError> {
 
     let reader = BufReader::new(file);
     let blocks = parse(reader)?;
-    Ok(Vec::new())
+    let result = evaluate(&blocks)?;
+    Ok(result)
 }
 
 fn encode_digit(digit: u8) -> char {

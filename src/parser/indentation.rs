@@ -65,7 +65,6 @@ impl ParserIndentation {
 
     pub fn eq(&mut self, line: &String, level: usize) -> Result<bool, AnonymousEvaluationError> {
         let indentation_level: usize = self.determine(line)?;
-        eprintln!("found {} expected {}", indentation_level, level);
         if indentation_level > level {
             Err(AnonymousEvaluationError::new("unexpected indentation".to_string()))
         } else if indentation_level == level {

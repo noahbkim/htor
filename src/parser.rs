@@ -40,7 +40,7 @@ impl Parser {
 
     fn parse_raw(&mut self, level: usize) -> Result<Vec<String>, EvaluationError> {
         let mut result: Vec<String> = Vec::new();
-        while !self.cursor.advance()? && self.indentation.ge(&self.cursor.get_line(), level).map_err_at(self.cursor.get_line_number())? {
+        while self.cursor.advance()? && self.indentation.ge(&self.cursor.get_line(), level).map_err_at(self.cursor.get_line_number())? {
             result.push(self.indentation.trim(&self.cursor.get_line(), level));
         }
         Ok(result)
@@ -48,7 +48,7 @@ impl Parser {
 
     fn parse(&mut self, level: usize) -> Result<Vec<Box<dyn Block>>, EvaluationError> {
         let mut result: Vec<Box<dyn Block>> = Vec::new();
-        while !self.cursor.advance()? && self.indentation.eq(&self.cursor.get_line(), level).map_err_at(self.cursor.get_line_number())? {
+        while self.cursor.advance()? && self.indentation.eq(&self.cursor.get_line(), level).map_err_at(self.cursor.get_line_number())? {
             let line: String = String::from(self.cursor.get_line().trim());
             if line.starts_with("@") {
                 let (macro_name, args): (String, Vec<String>) = tokenize_macro(line).map_err_at(self.cursor.get_line_number())?;
