@@ -1,137 +1,86 @@
-pub(crate) mod error;
 mod indentation;
 mod cursor;
-mod scope;
-mod decode;
-mod bytes;
-mod assembly;
 
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 
-use error::ParserError;
+use crate::error::{AnonymousEvaluationError, AnonymousEvaluationErrorResult};
 use indentation::ParserIndentation;
 use cursor::ParserCursor;
-use scope::ParserScope;
-use bytes::BytesParser;
-use assembly::compile_assembly;
-use crate::parser::error::RuntimeError;
 
+use crate::error::EvaluationError;
+use crate::block::{Block, MacroBlock, RawMacroBlock};
+use crate::block::bytes::BytesBlock;
+use crate::block::repeat::RepeatBlock;
+use crate::block::assembly::AssemblyBlock;
+use crate::block::define::DefineBlock;
 
 pub struct Parser {
-    pub cursor: ParserCursor,
-    pub indentation: ParserIndentation,
-    pub scope: ParserScope,
+    cursor: ParserCursor,
+    indentation: ParserIndentation,
+}
+
+fn tokenize_macro(mut line: String) -> Result<(String, Vec<String>), AnonymousEvaluationError> {
+    line.find('#').map(|index| line.replace_range(index.., ""));
+    let words: Vec<&str> = line.split_ascii_whitespace().collect();
+    let (head, tail) = words.split_at(1);
+    match head.first() {
+        None => Err(AnonymousEvaluationError::new("macro lines must contain a command before the colon".to_string())),
+        Some(macro_name) => Ok((String::from(*macro_name), tail.iter().map(|s| String::from(*s)).collect())),
+    }
 }
 
 impl Parser {
-    pub fn new(reader: BufReader<File>) -> Self {
-        Self {
-            cursor: ParserCursor::new(reader.lines().enumerate()),
+    pub fn new(reader: BufReader<File>) -> Result<Self, EvaluationError> {
+        Ok(Self {
+            cursor: ParserCursor::new(reader.lines()),
             indentation: ParserIndentation::new(),
-            scope: ParserScope::new(),
-        }
+        })
     }
 
-    fn on_indentation_level(&mut self, level: usize) -> Result<bool, RuntimeError> {
-        let indentation_level: usize = context.determine_level(cursor)?;
-        if indentation_level < level {
-            Ok(false)
-        } else if indentation_level > level {
-            Err(self.cursor.error(format!("expected indentation {}, found {}", level, indentation_level)))
-        } else {
-            Ok(true)
-        }
-    }
-
-    fn parse_repeat(&mut self, args: Vec<&str>, level: usize) -> Result<Vec<u8>, RuntimeError> {
-        match args.first() {
-            None => Err(cursor.error("expected exactly one argument indicating repetition count".to_string())),
-            Some(arg) => {
-                if !cursor.advance()? {
-                    return Ok(Vec::new());
-                }
-                let count: usize = arg.parse::<usize>().map_err(|_e| self.cursor.error(format!("invalid repetition count {}", arg)))?;
-                let content: Vec<u8> = self.parse(level + 1)?;
-                Ok(content.repeat(count))
-            }
-        }
-    }
-
-    fn parse_define(&mut self, args: Vec<&str>, level: usize) -> Result<Vec<u8>, RuntimeError> {
-        match args.first() {
-            None => return Err(self.cursor.error("expected exactly one argument indicating definition name".to_string())),
-            Some(arg) => {
-                if !cursor.advance()? {
-                    return Ok(Vec::<u8>::new());
-                }
-                let name: String = arg.to_string();
-                let contents: Vec<u8> = self.parse(level + 1)?;
-                context.definitions.insert(name, contents);
-            }
-        }
-        Ok(Vec::<u8>::new())
-    }
-
-    fn parse_raw(&mut self, level: usize) -> Result<String, RuntimeError> {
-        let mut result: String = String::new();
-        while self.on_indentation_level(level)? {
-            result.push_str(cursor.line.trim_start());
-            result.push('\n');
-            if !cursor.advance()? {
-                break;
-            }
+    fn parse_raw(&mut self, level: usize) -> Result<Vec<String>, EvaluationError> {
+        let mut result: Vec<String> = Vec::new();
+        while !self.cursor.advance()? && self.indentation.ge(&self.cursor.get_line(), level).map_err_at(self.cursor.get_line_number())? {
+            result.push(self.indentation.trim(&self.cursor.get_line(), level));
         }
         Ok(result)
     }
 
-    fn parse_assembly(&mut self, _args: Vec<&str>, level: usize) -> Result<Vec<u8>, RuntimeError> {
-        if !self.cursor.advance()? {
-            Ok(Vec::<u8>::new())
-        } else {
-            let line_number = self.cursor.line_number;
-            let assembly = self.parse_raw(level + 1)?;
-            compile_assembly(&assembly).map_err(|e| e.at(line_number))
-        }
-    }
-
-    pub fn parse(&mut self, level: usize) -> Result<Vec<u8>, RuntimeError> {
-        let mut result: Vec<u8> = Vec::new();
-        while on_indentation_level(cursor, context, level)? {
-            self.cursor.line = String::from(cursor.line.trim());
-            if self.cursor.line.starts_with("@") {
-                let mut line: String = cursor.line.clone();
-                line.find('#').map(|index| line.replace_range(index.., ""));
-
-                let words: Vec<&str> = line.split_ascii_whitespace().collect();
-                let (head, tail) = words.split_at(1);
-                match head.first() {
-                    None => {
-                        return Err(self.cursor.error("macro lines must contain a command before the colon".to_string()))
-                    }
-                    Some(&"@repeat") => {
-                        result.extend(self.parse_repeat(tail.to_vec(), level)?)
-                    }
-                    Some(&"@define") => {
-                        result.extend(self.parse_define(tail.to_vec(), level)?)
-                    }
-                    Some(&"@assembly") => {
-                        result.extend(self.parse_assembly(tail.to_vec(), level)?)
-                    }
-                    Some(command) => {
-                        return Err(self.cursor.error(format!("unknown command: {}", command)))
-                    }
+    fn parse(&mut self, level: usize) -> Result<Vec<Box<dyn Block>>, EvaluationError> {
+        let mut result: Vec<Box<dyn Block>> = Vec::new();
+        while !self.cursor.advance()? && self.indentation.eq(&self.cursor.get_line(), level).map_err_at(self.cursor.get_line_number())? {
+            let line: String = String::from(self.cursor.get_line().trim());
+            if line.starts_with("@") {
+                let (macro_name, args): (String, Vec<String>) = tokenize_macro(line).map_err_at(self.cursor.get_line_number())?;
+                match macro_name.as_str() {
+                    "@repeat" => result.push(RepeatBlock::new(
+                        self.cursor.get_line_number(),
+                        args,
+                        self.parse(level + 1)?
+                    )?),
+                    "@define" => result.push(DefineBlock::new(
+                        self.cursor.get_line_number(),
+                        args,
+                        self.parse(level + 1)?
+                    )?),
+                    "@assembly" => result.push(AssemblyBlock::new(
+                        self.cursor.get_line_number(),
+                        args,
+                        self.parse_raw(level + 1)?,
+                    )?),
+                    _ => return Err(EvaluationError::new(
+                        self.cursor.get_line_number(),
+                        format!("unknown macro: {}", macro_name))),
                 };
             } else {
-                result.extend(BytesParser::parse(&self.cursor.line, &self.scope).map_err(|e| e.at(self.cursor.line_number))?);
-            }
-
-            if !cursor.advance()? {
-                break;
+                result.push(BytesBlock::new(self.cursor.get_line_number(), &line)?);
             }
         }
         Ok(result)
     }
 }
 
-
+pub fn parse(reader: BufReader<File>) -> Result<Vec<Box<dyn Block>>, EvaluationError> {
+    let mut parser: Parser = Parser::new(reader)?;
+    parser.parse(0)
+}

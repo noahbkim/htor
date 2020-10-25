@@ -1,24 +1,29 @@
-use std::fs::File;
-use std::io::{stdout, BufRead, BufReader, Write};
-use std::process::exit;
+// use std::fs::File;
+// use std::io::{stdout, BufRead, BufReader, Write};
+// use std::process::exit;
 
 mod parser;
+mod block;
+mod evaluator;
+pub mod error;
 
+use parser::parse;
+use error::EvaluationError;
+use std::io::{BufReader, stdout, Write};
+use std::fs::File;
 use clap::{App, Arg};
-use parser::{parse, ParserContext, ParserCursor};
-use parser::error::RuntimeError;
+use std::process::exit;
 
-fn read(path: &str) -> Result<Vec<u8>, RuntimeError> {
+
+fn read(path: &str) -> Result<Vec<u8>, EvaluationError> {
     let file = match File::open(&path) {
         Ok(file) => file,
-        Err(_) => return Err(RuntimeError::new("error reading file!", 0)),
+        Err(_) => return Err(EvaluationError::new(0, "error reading file!".to_string())),
     };
 
-    let reader: BufReader<File> = BufReader::new(file);
-    let mut cursor: ParserCursor = ParserCursor::new(reader.lines().enumerate());
-    let mut context: ParserContext = ParserContext::new();
-    cursor.advance()?;
-    parse(&mut cursor, &mut context, 0)
+    let reader = BufReader::new(file);
+    let blocks = parse(reader)?;
+    Ok(Vec::new())
 }
 
 fn encode_digit(digit: u8) -> char {

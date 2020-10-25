@@ -1,19 +1,17 @@
 use std::fs::File;
 use std::io::{BufReader, Lines};
-use std::iter::{Enumerate};
 
-use crate::parser::error::RuntimeError;
+use crate::error::EvaluationError;
 
-pub type EnumeratedLines = Enumerate<Lines<BufReader<File>>>;
 
 pub struct ParserCursor {
-    pub line: String,
-    pub line_number: usize,
-    lines: EnumeratedLines,
+    line: String,
+    line_number: usize,
+    lines: Lines<BufReader<File>>,
 }
 
 impl ParserCursor {
-    pub fn new(lines: EnumeratedLines) -> Self {
+    pub fn new(lines: Lines<BufReader<File>>) -> Self {
         ParserCursor {
             line: String::new(),
             line_number: 0,
@@ -21,21 +19,27 @@ impl ParserCursor {
         }
     }
 
-    pub fn advance(&mut self) -> Result<bool, RuntimeError> {
+    pub fn advance(&mut self) -> Result<bool, EvaluationError> {
         match self.lines.next() {
             None => Ok(false),
-            Some((line_number, line_result)) => match line_result {
-                Err(_) => Err(RuntimeError::new(line_number, "failed to read line".to_string())),
+            Some(line) => match line {
+                Err(_) => Err(EvaluationError::new(
+                    self.line_number,
+                    "failed to read line".to_string())),
                 Ok(line) => {
                     self.line = line;
-                    self.line_number = line_number;
+                    self.line_number += 1;
                     Ok(true)
                 }
             },
         }
     }
 
-    pub fn error(&self, what: String) -> RuntimeError {
-        RuntimeError::new(self.line_number, what)
+    pub fn get_line(&self) -> &String {
+        return &self.line;
+    }
+
+    pub fn get_line_number(&self) -> usize {
+        return self.line_number
     }
 }

@@ -22,37 +22,46 @@ impl fmt::Display for ParserError {
 }
 
 
-pub struct AnonymousRuntimeError {
+pub struct AnonymousEvaluationError {
     what: String,
 }
 
-impl AnonymousRuntimeError {
+impl AnonymousEvaluationError {
     pub fn new(what: String) -> Self {
         Self { what }
     }
+    pub fn at(self, line: usize) -> EvaluationError {
+        EvaluationError::new(line, self.what)
+    }
+}
 
-    pub fn at(self, line: usize) -> RuntimeError {
-        RuntimeError::new(line, self.what)
+pub trait AnonymousEvaluationErrorResult<T> {
+    fn map_err_at(self, line_number: usize) -> Result<T, EvaluationError>;
+}
+
+impl<T> AnonymousEvaluationErrorResult<T> for Result<T, AnonymousEvaluationError> {
+    fn map_err_at(self, line_number: usize) -> Result<T, EvaluationError> {
+        self.map_err(|e| e.at(line_number))
     }
 }
 
 
 #[derive(Debug)]
-pub struct RuntimeError {
+pub struct EvaluationError {
     what: String,
     line: usize,
 }
 
-impl Error for RuntimeError {}
+impl Error for EvaluationError {}
 
-impl fmt::Display for RuntimeError {
+impl fmt::Display for EvaluationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Runtime error on line {}: {}", self.line, self.what)
     }
 }
 
-impl RuntimeError {
+impl EvaluationError {
     pub fn new(line: usize, what: String) -> Self {
-        RuntimeError { what, line }
+        EvaluationError { what, line }
     }
 }
