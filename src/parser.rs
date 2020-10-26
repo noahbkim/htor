@@ -73,7 +73,7 @@ impl Parser {
                         format!("unknown macro: {}", macro_name))),
                 };
             } else {
-                result.push(BytesBlock::new(self.cursor.get_line_number(), &line)?);
+                result.push(BytesBlock::new(self.cursor.get_line_number(), line)?);
             }
         }
         Ok(result)

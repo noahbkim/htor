@@ -3,6 +3,11 @@ mod block;
 mod evaluator;
 pub mod error;
 
+extern crate pest;
+
+#[macro_use]
+extern crate pest_derive;
+
 use parser::parse;
 use error::EvaluationError;
 use std::io::{BufReader, stdout, Write};

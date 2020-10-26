@@ -1,0 +1,36 @@
+line = _{ SOI ~ items ~ EOI }
+
+items = { item* }
+item = _{ expansion | string | number | left | right }
+
+expansion = {
+	identity ~
+    (
+    	"(" ~ ")" |
+        "(" ~ items ~ ")" |
+        "(" ~ items ~ ("," ~ items)+ ~ ")"
+    )?
+}
+
+identity = @{ "$" ~ ('a'..'z' | 'A'..'Z') ~ ('a'..'z' | 'A'..'Z' | '0'..'9')* }
+
+left = { "<" }
+right = { ">" }
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = _{
+    !("\"" | "\\") ~ ANY |
+    "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t") |
+    "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+number = @{ sizing ~ literal | literal ~ sizing | literal }
+sizing = { "[" ~ literal ~ "]" }
+literal = _{ hexadecimal | decimal | binary }
+hexadecimal = @{ "0x"? ~ ('0'..'9' | 'a'..'f' | 'A'..'F')+ }
+decimal = @{ "0d" ~ '0'..'9'+ }
+binary = @{ "0b" ~ '0'..'1'+ }
+
+WHITESPACE = _{ " " | "\t" }
+
