@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::fmt;
 
-
 #[derive(Debug)]
 pub struct ParserError {
     what: String,
@@ -20,7 +19,6 @@ impl fmt::Display for ParserError {
         write!(f, "{}", self.what)
     }
 }
-
 
 pub struct AnonymousEvaluationError {
     what: String,
@@ -44,7 +42,6 @@ impl<T> AnonymousEvaluationErrorResult<T> for Result<T, AnonymousEvaluationError
         self.map_err(|e| e.at(line_number))
     }
 }
-
 
 #[derive(Debug)]
 pub struct EvaluationError {

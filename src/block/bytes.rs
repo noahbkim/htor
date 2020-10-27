@@ -2,11 +2,12 @@ mod parser;
 mod translate;
 
 use super::Block;
+use crate::block::bytes::parser::{parse_bytes, BytesItem};
 use crate::error::AnonymousEvaluationErrorResult;
 use crate::error::EvaluationError;
-use crate::evaluator::Evaluator;
-use crate::block::bytes::parser::{parse_bytes, BytesItem};
 use crate::evaluator::expansion::Expansion;
+use crate::evaluator::scope::EvaluatorScope;
+use std::rc::Rc;
 
 enum BytesState {
     None,
@@ -25,7 +26,7 @@ impl BytesBlock {
     pub fn new(line_number: usize, line: String) -> Result<Self, EvaluationError> {
         Ok(BytesBlock {
             line_number,
-            items: parse_bytes(line.as_str()).map_err_at(line_number)?
+            items: parse_bytes(line.as_str()).map_err_at(line_number)?,
         })
     }
 }
@@ -37,7 +38,11 @@ fn reverse_tail(vector: &mut Vec<u8>, from: usize) {
     }
 }
 
-fn evaluate(line_number: usize, items: &Vec<BytesItem>, evaluator: &mut Evaluator) -> Result<Vec<u8>, EvaluationError> {
+fn evaluate(
+    line_number: usize,
+    items: &Vec<BytesItem>,
+    scope: &mut EvaluatorScope,
+) -> Result<Vec<u8>, EvaluationError> {
     let mut result: Vec<u8> = Vec::new();
     let mut flip: Option<usize> = None;
     for item in items.iter() {
@@ -60,12 +65,17 @@ fn evaluate(line_number: usize, items: &Vec<BytesItem>, evaluator: &mut Evaluato
             BytesItem::Expansion(name, args) => {
                 let mut expansion_args: Vec<Vec<u8>> = Vec::new();
                 for arg in args {
-                    expansion_args.push(evaluate(line_number, arg, evaluator)?);
+                    expansion_args.push(evaluate(line_number, arg, scope)?);
                 }
 
-                let expansion: &Box<dyn Expansion> = evaluator.scope.get(&name).ok_or(
-                    EvaluationError::new(line_number, format!("undefined variable {}", name)))?;
-                result.extend(expansion.expand(evaluator, &expansion_args).map_err_at(line_number)?);
+                let expansion: &Box<dyn Expansion> = scope.get(&name).ok_or(
+                    EvaluationError::new(line_number, format!("undefined variable {}", name)),
+                )?;
+                result.extend(
+                    expansion
+                        .expand(scope, &expansion_args)
+                        .map_err_at(line_number)?,
+                );
             }
         }
     }
@@ -76,7 +86,7 @@ fn evaluate(line_number: usize, items: &Vec<BytesItem>, evaluator: &mut Evaluato
 }
 
 impl Block for BytesBlock {
-    fn evaluate(&self, evaluator: &mut Evaluator) -> Result<Vec<u8>, EvaluationError> {
-        evaluate(self.line_number, &self.items, evaluator)
+    fn evaluate(&self, scope: &mut EvaluatorScope) -> Result<Vec<u8>, EvaluationError> {
+        evaluate(self.line_number, &self.items, scope)
     }
 }

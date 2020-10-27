@@ -1,8 +1,8 @@
-use pest::Parser;
 use pest::iterators::Pair;
+use pest::Parser;
 
+use crate::block::bytes::translate::{bytes_from_number, integer_from_number};
 use crate::error::AnonymousEvaluationError;
-use crate::block::bytes::translate::{integer_from_number, bytes_from_number};
 
 pub enum BytesItem {
     Expansion(String, Vec<Vec<BytesItem>>),
@@ -27,13 +27,17 @@ fn resize_anchored_left(literal: &mut Vec<u8>, size: usize) {
 
 fn decode_number(string: &str) -> Result<Vec<u8>, AnonymousEvaluationError> {
     if string.starts_with("[") {
-        let size_end: usize = string.find("]").ok_or(AnonymousEvaluationError::new("invalid padding format".to_string()))?;
+        let size_end: usize = string.find("]").ok_or(AnonymousEvaluationError::new(
+            "invalid padding format".to_string(),
+        ))?;
         let size: usize = integer_from_number(&string[1..size_end])?;
         let mut result: Vec<u8> = bytes_from_number(&string[size_end + 1..], true)?;
         resize_anchored_right(&mut result, size);
         Ok(result)
     } else if string.ends_with("]") {
-        let size_start: usize = string.find("[").ok_or(AnonymousEvaluationError::new("invalid padding format".to_string()))?;
+        let size_start: usize = string.find("[").ok_or(AnonymousEvaluationError::new(
+            "invalid padding format".to_string(),
+        ))?;
         let size: usize = integer_from_number(&string[size_start + 1..string.len() - 1])?;
         let mut result: Vec<u8> = bytes_from_number(&string[..size_start], true)?;
         resize_anchored_left(&mut result, size);
@@ -51,7 +55,10 @@ fn decode_string(string: &str) -> Result<Vec<u8>, AnonymousEvaluationError> {
     let mut result: Vec<u8> = Vec::new();
     for (i, character) in string[1..string.len() - 1].chars().enumerate() {
         if character > (255 as char) {
-            return Err(AnonymousEvaluationError::new(format!("encountered invalid character in column {}", i)));
+            return Err(AnonymousEvaluationError::new(format!(
+                "encountered invalid character in column {}",
+                i
+            )));
         } else {
             result.push(character as u8);
         }
@@ -60,7 +67,9 @@ fn decode_string(string: &str) -> Result<Vec<u8>, AnonymousEvaluationError> {
 }
 
 fn parse_string(pair: Pair<Rule>) -> Result<BytesItem, AnonymousEvaluationError> {
-    Ok(BytesItem::Literal(decode_string(pair.into_inner().next().unwrap().as_str())?))
+    Ok(BytesItem::Literal(decode_string(
+        pair.into_inner().next().unwrap().as_str(),
+    )?))
 }
 
 fn parse_expansion(pair: Pair<Rule>) -> Result<BytesItem, AnonymousEvaluationError> {
@@ -80,7 +89,10 @@ fn parse_bytes_pair(pair: Pair<Rule>) -> Result<BytesItem, AnonymousEvaluationEr
         Rule::left => Ok(BytesItem::Left),
         Rule::right => Ok(BytesItem::Right),
         Rule::expansion => parse_expansion(pair),
-        _ => Err(AnonymousEvaluationError::new(format!("unexpected syntax tree {:?}", pair.as_rule()))),
+        _ => Err(AnonymousEvaluationError::new(format!(
+            "unexpected syntax tree {:?}",
+            pair.as_rule()
+        ))),
     }
 }
 
@@ -92,8 +104,10 @@ fn parse_bytes_pair_items(pair: Pair<Rule>) -> Result<Vec<BytesItem>, AnonymousE
                 result.push(parse_bytes_pair(item)?);
             }
             Ok(result)
-        },
-        _ => Err(AnonymousEvaluationError::new("unexpected syntax tree".to_string()))
+        }
+        _ => Err(AnonymousEvaluationError::new(
+            "unexpected syntax tree".to_string(),
+        )),
     }
 }
 

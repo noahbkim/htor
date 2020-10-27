@@ -1,12 +1,13 @@
 use crate::error::AnonymousEvaluationError;
 
-
 pub fn byte_from_hexadecimal_digit(digit: char) -> Result<u8, AnonymousEvaluationError> {
     match digit {
         '0'..='9' => Ok((digit as u8) - ('0' as u8)),
         'A'..='F' => Ok((digit as u8) - ('A' as u8) + 10),
         'a'..='f' => Ok((digit as u8) - ('a' as u8) + 10),
-        _ => Err(AnonymousEvaluationError::new("invalid hexadecimal digit".to_string())),
+        _ => Err(AnonymousEvaluationError::new(
+            "invalid hexadecimal digit".to_string(),
+        )),
     }
 }
 
@@ -19,13 +20,18 @@ pub fn integer_from_hexadecimal(string: &str) -> Result<usize, AnonymousEvaluati
     Ok(result)
 }
 
-pub fn bytes_from_hexadecimal(string: &str, strict: bool) -> Result<Vec<u8>, AnonymousEvaluationError> {
+pub fn bytes_from_hexadecimal(
+    string: &str,
+    strict: bool,
+) -> Result<Vec<u8>, AnonymousEvaluationError> {
     let mut result: Vec<u8> = Vec::new();
     let mut collected: Vec<char> = string.chars().collect();
 
     if string.len() % 2 != 0 {
         if strict {
-            return Err(AnonymousEvaluationError::new("length of hexadecimal word must be divisible by two".to_string()))
+            return Err(AnonymousEvaluationError::new(
+                "length of hexadecimal word must be divisible by two".to_string(),
+            ));
         } else {
             collected.insert(0, '0');
         }
@@ -40,7 +46,9 @@ pub fn bytes_from_hexadecimal(string: &str, strict: bool) -> Result<Vec<u8>, Ano
 }
 
 pub fn integer_from_decimal(string: &str) -> Result<usize, AnonymousEvaluationError> {
-    string.parse::<usize>().map_err(|e| AnonymousEvaluationError::new(format!("invalid decimal format: {}", e)))
+    string
+        .parse::<usize>()
+        .map_err(|e| AnonymousEvaluationError::new(format!("invalid decimal format: {}", e)))
 }
 
 pub fn bytes_from_decimal(string: &str) -> Result<Vec<u8>, AnonymousEvaluationError> {
@@ -57,7 +65,9 @@ pub fn bytes_from_decimal(string: &str) -> Result<Vec<u8>, AnonymousEvaluationEr
 pub fn byte_from_binary_digit(digit: char) -> Result<u8, AnonymousEvaluationError> {
     match digit {
         '0'..='1' => Ok((digit as u8) - ('0' as u8)),
-        _ => Err(AnonymousEvaluationError::new("invalid binary digit".to_string())),
+        _ => Err(AnonymousEvaluationError::new(
+            "invalid binary digit".to_string(),
+        )),
     }
 }
 
@@ -76,7 +86,9 @@ pub fn bytes_from_binary(string: &str, strict: bool) -> Result<Vec<u8>, Anonymou
 
     if string.len() % 8 != 0 {
         if strict {
-            return Err(AnonymousEvaluationError::new("length of binary word must be divisible by eight".to_string()))
+            return Err(AnonymousEvaluationError::new(
+                "length of binary word must be divisible by eight".to_string(),
+            ));
         } else {
             for _ in 0..(8 - string.len() % 8) {
                 collected.insert(0, '0')
@@ -118,4 +130,3 @@ pub fn integer_from_number(string: &str) -> Result<usize, AnonymousEvaluationErr
         integer_from_hexadecimal(&string)
     }
 }
-

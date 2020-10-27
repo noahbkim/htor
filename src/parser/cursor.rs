@@ -3,7 +3,6 @@ use std::io::{BufReader, Lines};
 
 use crate::error::EvaluationError;
 
-
 pub struct ParserCursor {
     line: String,
     line_number: usize,
@@ -25,7 +24,8 @@ impl ParserCursor {
             Some(line) => match line {
                 Err(_) => Err(EvaluationError::new(
                     self.line_number,
-                    "failed to read line".to_string())),
+                    "failed to read line".to_string(),
+                )),
                 Ok(line) => {
                     self.line = line;
                     self.line_number += 1;
@@ -40,6 +40,6 @@ impl ParserCursor {
     }
 
     pub fn get_line_number(&self) -> usize {
-        return self.line_number
+        return self.line_number;
     }
 }

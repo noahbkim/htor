@@ -1,51 +1,45 @@
-use std::collections::HashMap;
-use crate::block::Block;
-use crate::block::define::DefineBlock;
 use crate::evaluator::expansion::Expansion;
+use std::collections::HashMap;
+use std::rc::Rc;
 
-pub struct EvaluatorScope {
-    level: usize,
-    root: HashMap<String, Box<dyn Expansion>>,
-    stack: Vec<HashMap<String, Box<dyn Expansion>>>,
+type Link<'a> = Option<&'a EvaluatorScope<'a>>;
+
+pub struct EvaluatorScope<'a> {
+    expansions: HashMap<String, Box<dyn Expansion>>,
+    parent: Link<'a>,
 }
 
-impl EvaluatorScope {
+impl<'a> EvaluatorScope<'a> {
     pub fn new() -> Self {
         Self {
-            level: 0,
-            root: HashMap::new(),
-            stack: Vec::new(),
+            expansions: HashMap::new(),
+            parent: None,
         }
     }
 
-    pub fn push(&mut self) {
-        if self.level != 0 {
-            self.stack.push(HashMap::new());
+    pub fn child(parent: &EvaluatorScope) -> Self {
+        Self {
+            expansions: HashMap::new(),
+            parent: Some(parent),
         }
-        self.level += 1;
     }
 
     pub fn set(&mut self, name: &String, expansion: Box<dyn Expansion>) {
-        match self.stack.last_mut() {
-            Some(map) => map.insert(name.clone(), expansion),
-            None => self.root.insert(name.clone(), expansion),
-        };
+        self.expansions.insert(name.clone(), expansion);
     }
 
     pub fn get(&self, name: &String) -> Option<&Box<dyn Expansion>> {
-        for scope in self.stack.iter().rev() {
-            match scope.get(name) {
-                None => {},
-                Some(block) => return Some(block),
-            };
+        if let Some(expansion) = self.expansions.get(name) {
+            Some(expansion)
+        } else {
+            let mut cursor: &Link = &self.parent;
+            while let Some(scope) = cursor {
+                if let Some(expansion) = scope.expansions.get(name) {
+                    return Some(expansion);
+                }
+                cursor = &scope.parent;
+            }
+            None
         }
-        self.root.get(name)
-    }
-
-    pub fn pop(&mut self) {
-        if self.level > 0 {
-            self.stack.pop();
-        }
-        self.level -= 1;
     }
 }

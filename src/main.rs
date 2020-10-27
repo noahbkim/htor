@@ -1,21 +1,22 @@
-mod parser;
 mod block;
-mod evaluator;
 pub mod error;
+mod evaluator;
+mod parser;
 
 extern crate pest;
 
 #[macro_use]
 extern crate pest_derive;
 
-use parser::parse;
-use error::EvaluationError;
-use std::io::{BufReader, stdout, Write};
-use std::fs::File;
-use clap::{App, Arg};
-use std::process::exit;
 use crate::evaluator::evaluate;
-
+use crate::evaluator::scope::EvaluatorScope;
+use clap::{App, Arg};
+use error::EvaluationError;
+use parser::parse;
+use std::fs::File;
+use std::io::{stdout, BufReader, Write};
+use std::process::exit;
+use std::rc::Rc;
 
 fn read(path: &str) -> Result<Vec<u8>, EvaluationError> {
     let file = match File::open(&path) {
@@ -25,7 +26,7 @@ fn read(path: &str) -> Result<Vec<u8>, EvaluationError> {
 
     let reader = BufReader::new(file);
     let blocks = parse(reader)?;
-    let result = evaluate(&blocks)?;
+    let result = evaluate(&blocks, &EvaluatorScope::new())?;
     Ok(result)
 }
 

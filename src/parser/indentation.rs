@@ -19,7 +19,9 @@ fn count_at_start(
         if c == expected {
             result += 1;
         } else if c == disallowed {
-            return Err(AnonymousEvaluationError::new("encountered mixed tabs and spaces".to_string()));
+            return Err(AnonymousEvaluationError::new(
+                "encountered mixed tabs and spaces".to_string(),
+            ));
         } else {
             break;
         }
@@ -29,9 +31,7 @@ fn count_at_start(
 
 impl ParserIndentation {
     pub fn new() -> Self {
-        Self {
-            indentation: None,
-        }
+        Self { indentation: None }
     }
 
     pub fn determine(&mut self, line: &String) -> Result<usize, AnonymousEvaluationError> {
@@ -39,7 +39,9 @@ impl ParserIndentation {
             Some(Indentation::Spaces(count)) => {
                 let result: usize = count_at_start(' ', '\t', line)?;
                 if result % count != 0 {
-                    Err(AnonymousEvaluationError::new("uneven indentation".to_string()))
+                    Err(AnonymousEvaluationError::new(
+                        "uneven indentation".to_string(),
+                    ))
                 } else {
                     Ok(result / count)
                 }
@@ -66,7 +68,9 @@ impl ParserIndentation {
     pub fn eq(&mut self, line: &String, level: usize) -> Result<bool, AnonymousEvaluationError> {
         let indentation_level: usize = self.determine(line)?;
         if indentation_level > level {
-            Err(AnonymousEvaluationError::new("unexpected indentation".to_string()))
+            Err(AnonymousEvaluationError::new(
+                "unexpected indentation".to_string(),
+            ))
         } else if indentation_level == level {
             Ok(true)
         } else {
@@ -80,10 +84,12 @@ impl ParserIndentation {
     }
 
     pub fn trim(&self, line: &String, level: usize) -> String {
-        line.chars().skip(match self.indentation {
-            Some(Indentation::Spaces(count)) => count * level,
-            Some(Indentation::Tabs) => level,
-            None => 0
-        }).collect::<String>()
+        line.chars()
+            .skip(match self.indentation {
+                Some(Indentation::Spaces(count)) => count * level,
+                Some(Indentation::Tabs) => level,
+                None => 0,
+            })
+            .collect::<String>()
     }
 }
