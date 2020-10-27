@@ -1,5 +1,4 @@
 use pest::Parser;
-use pest::error::Error;
 use pest::iterators::Pair;
 
 use crate::error::AnonymousEvaluationError;

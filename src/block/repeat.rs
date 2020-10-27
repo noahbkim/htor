@@ -1,11 +1,12 @@
 use crate::block::{Block, MacroBlock};
 use crate::error::EvaluationError;
 use crate::evaluator::Evaluator;
+use std::rc::Rc;
 
 pub struct RepeatBlock {
     line_number: usize,
     repeat_count: usize,
-    blocks: Vec<Box<dyn Block>>,
+    blocks: Vec<Rc<dyn Block>>,
 }
 
 impl Block for RepeatBlock {
@@ -19,11 +20,11 @@ impl Block for RepeatBlock {
 }
 
 impl MacroBlock for RepeatBlock {
-    fn new(line_number: usize, mut args: Vec<String>, blocks: Vec<Box<dyn Block>>) -> Result<Box<Self>, EvaluationError> {
+    fn allocate(line_number: usize, mut args: Vec<String>, blocks: Vec<Rc<dyn Block>>) -> Result<Rc<Self>, EvaluationError> {
         if args.len() == 1 {
             let arg: String = args.pop().unwrap();
             match arg.parse::<usize>() {
-                Ok(repeat_count) => Ok(Box::new(Self { line_number, repeat_count, blocks })),
+                Ok(repeat_count) => Ok(Rc::new(Self { line_number, repeat_count, blocks })),
                 Err(_) => Err(EvaluationError::new(line_number, format!("invalid repetition count {}", arg))),
             }
         } else {

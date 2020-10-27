@@ -1,9 +1,12 @@
 use std::collections::HashMap;
+use crate::block::Block;
+use crate::block::define::DefineBlock;
+use crate::evaluator::expansion::Expansion;
 
 pub struct EvaluatorScope {
     level: usize,
-    root: HashMap<String, Vec<u8>>,
-    stack: Vec<HashMap<String, Vec<u8>>>,
+    root: HashMap<String, Box<dyn Expansion>>,
+    stack: Vec<HashMap<String, Box<dyn Expansion>>>,
 }
 
 impl EvaluatorScope {
@@ -22,18 +25,18 @@ impl EvaluatorScope {
         self.level += 1;
     }
 
-    pub fn set(&mut self, name: String, value: Vec<u8>) {
+    pub fn set(&mut self, name: &String, expansion: Box<dyn Expansion>) {
         match self.stack.last_mut() {
-            Some(map) => map.insert(name, value),
-            None => self.root.insert(name, value),
+            Some(map) => map.insert(name.clone(), expansion),
+            None => self.root.insert(name.clone(), expansion),
         };
     }
 
-    pub fn get(&self, name: &String) -> Option<&Vec<u8>> {
+    pub fn get(&self, name: &String) -> Option<&Box<dyn Expansion>> {
         for scope in self.stack.iter().rev() {
             match scope.get(name) {
                 None => {},
-                Some(result) => return Some(result),
+                Some(block) => return Some(block),
             };
         }
         self.root.get(name)

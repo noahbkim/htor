@@ -14,6 +14,7 @@ use crate::block::bytes::BytesBlock;
 use crate::block::repeat::RepeatBlock;
 use crate::block::assembly::AssemblyBlock;
 use crate::block::define::DefineBlock;
+use std::rc::Rc;
 
 pub struct Parser {
     cursor: ParserCursor,
@@ -46,24 +47,24 @@ impl Parser {
         Ok(result)
     }
 
-    fn parse(&mut self, level: usize) -> Result<Vec<Box<dyn Block>>, EvaluationError> {
-        let mut result: Vec<Box<dyn Block>> = Vec::new();
+    fn parse(&mut self, level: usize) -> Result<Vec<Rc<dyn Block>>, EvaluationError> {
+        let mut result: Vec<Rc<dyn Block>> = Vec::new();
         while self.cursor.advance()? && self.indentation.eq(&self.cursor.get_line(), level).map_err_at(self.cursor.get_line_number())? {
             let line: String = String::from(self.cursor.get_line().trim());
             if line.starts_with("@") {
                 let (macro_name, args): (String, Vec<String>) = tokenize_macro(line).map_err_at(self.cursor.get_line_number())?;
                 match macro_name.as_str() {
-                    "@repeat" => result.push(RepeatBlock::new(
+                    "@repeat" => result.push(RepeatBlock::allocate(
                         self.cursor.get_line_number(),
                         args,
                         self.parse(level + 1)?
                     )?),
-                    "@define" => result.push(DefineBlock::new(
+                    "@define" => result.push(DefineBlock::allocate(
                         self.cursor.get_line_number(),
                         args,
                         self.parse(level + 1)?
                     )?),
-                    "@assembly" => result.push(AssemblyBlock::new(
+                    "@assembly" => result.push(AssemblyBlock::allocate(
                         self.cursor.get_line_number(),
                         args,
                         self.parse_raw(level + 1)?,
@@ -73,14 +74,14 @@ impl Parser {
                         format!("unknown macro: {}", macro_name))),
                 };
             } else {
-                result.push(BytesBlock::new(self.cursor.get_line_number(), line)?);
+                result.push(Rc::new(BytesBlock::new(self.cursor.get_line_number(), line)?));
             }
         }
         Ok(result)
     }
 }
 
-pub fn parse(reader: BufReader<File>) -> Result<Vec<Box<dyn Block>>, EvaluationError> {
+pub fn parse(reader: BufReader<File>) -> Result<Vec<Rc<dyn Block>>, EvaluationError> {
     let mut parser: Parser = Parser::new(reader)?;
     parser.parse(0)
 }

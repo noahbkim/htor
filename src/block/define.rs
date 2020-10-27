@@ -1,27 +1,41 @@
+mod expansion;
+
+use std::rc::Rc;
 use crate::block::{Block, MacroBlock};
-use crate::error::EvaluationError;
+use crate::error::{EvaluationError, AnonymousEvaluationError};
 use crate::evaluator::Evaluator;
+use crate::block::define::expansion::DefineExpansion;
+
 
 pub struct DefineBlock {
     line_number: usize,
     name: String,
-    blocks: Vec<Box<dyn Block>>,
+    parameters: Vec<String>,
+    blocks: Vec<Rc<dyn Block>>,
 }
 
 impl Block for DefineBlock {
     fn evaluate(&self, evaluator: &mut Evaluator) -> Result<Vec<u8>, EvaluationError> {
-        let result: Vec<u8> = evaluator.evaluate(&self.blocks)?;
-        evaluator.scope.set(self.name.clone(), result);
+        evaluator.scope.set(&self.name, Box::new(DefineExpansion::new(
+            self.name.clone(),
+            self.parameters.clone(),
+            self.blocks.clone(),
+        )));
         Ok(Vec::new())
     }
 }
 
 impl MacroBlock for DefineBlock {
-    fn new(line_number: usize, mut args: Vec<String>, blocks: Vec<Box<dyn Block>>) -> Result<Box<Self>, EvaluationError> {
-        if args.len() == 1 {
-            Ok(Box::new(Self { line_number, name: args.pop().unwrap(), blocks }))
+    fn allocate(line_number: usize, mut args: Vec<String>, blocks: Vec<Rc<dyn Block>>) -> Result<Rc<Self>, EvaluationError> {
+        if args.len() < 1 {
+            Err(EvaluationError::new(line_number, "expected at least one argument indicating definition name".to_string()))
         } else {
-            Err(EvaluationError::new(line_number, "expected exactly one argument indicating definition name".to_string()))
+            Ok(Rc::new(Self {
+                line_number,
+                name: args.pop().unwrap(),
+                parameters: args,
+                blocks
+            }))
         }
     }
 }

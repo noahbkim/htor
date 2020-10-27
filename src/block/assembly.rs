@@ -3,6 +3,7 @@ use std::process::{Command, Stdio};
 use super::{Block, RawMacroBlock};
 use crate::error::{EvaluationError, AnonymousEvaluationError};
 use crate::evaluator::Evaluator;
+use std::rc::Rc;
 
 
 fn compile_assembly(contents: &String) -> Result<Vec<u8>, AnonymousEvaluationError> {
@@ -56,9 +57,9 @@ impl Block for AssemblyBlock {
 }
 
 impl RawMacroBlock for AssemblyBlock {
-    fn new(line_number: usize, _args: Vec<String>, lines: Vec<String>) -> Result<Box<Self>, EvaluationError> {
+    fn allocate(line_number: usize, _args: Vec<String>, lines: Vec<String>) -> Result<Rc<Self>, EvaluationError> {
         let contents: String = lines.iter().fold(String::new(), |a, v| a + v);
         let compiled: Vec<u8> = compile_assembly(&contents).map_err(|e| e.at(line_number))?;
-        Ok(Box::new(Self { line_number, compiled }))
+        Ok(Rc::new(Self { line_number, compiled }))
     }
 }

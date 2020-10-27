@@ -40,7 +40,7 @@ pub fn bytes_from_hexadecimal(string: &str, strict: bool) -> Result<Vec<u8>, Ano
 }
 
 pub fn integer_from_decimal(string: &str) -> Result<usize, AnonymousEvaluationError> {
-    string.parse::<usize>().map_err(|e| AnonymousEvaluationError::new("invalid format".to_string()))
+    string.parse::<usize>().map_err(|e| AnonymousEvaluationError::new(format!("invalid decimal format: {}", e)))
 }
 
 pub fn bytes_from_decimal(string: &str) -> Result<Vec<u8>, AnonymousEvaluationError> {
