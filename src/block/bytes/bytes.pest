@@ -1,22 +1,24 @@
+// Line should be parsed exhaustively
 line = _{ SOI ~ items ~ EOI }
 
+// Items may have space between them
 items = { item* }
 item = _{ expansion | string | number | left | right }
 
+// $name is synonymous with $name()
 expansion = {
 	identity ~
-    (
-    	"(" ~ ")" |
-        "(" ~ items ~ ")" |
-        "(" ~ items ~ ("," ~ items)+ ~ ")"
-    )?
+    ("(" ~ ")" | "(" ~ items ~ ")" | "(" ~ items ~ ("," ~ items)+ ~ ")")?
 }
 
-identity = @{ "$" ~ ('a'..'z' | 'A'..'Z') ~ ('a'..'z' | 'A'..'Z' | '0'..'9')* }
+// An identity follows standard variable name rules
+identity = @{ "$" ~ ('a'..'z' | 'A'..'Z' | "_") ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "_")* }
 
+// Left and right don't have to be spaced apart from other tokens
 left = { "<" }
 right = { ">" }
 
+// Strings should ignore the quotes while unwrapping
 string = ${ "\"" ~ inner ~ "\"" }
 inner = @{ char* }
 char = _{
@@ -25,9 +27,12 @@ char = _{
     "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
+// A number can be sized anchored left or right
 number = @{ sizing ~ literal | literal ~ sizing | literal }
 sizing = { "[" ~ literal ~ "]" }
 literal = _{ hexadecimal | decimal | binary }
+
+// Since numbers are hexadecimal by default, 0d is required for decimals
 hexadecimal = @{ "0x"? ~ ('0'..'9' | 'a'..'f' | 'A'..'F')+ }
 decimal = @{ "0d" ~ '0'..'9'+ }
 binary = @{ "0b" ~ '0'..'1'+ }
