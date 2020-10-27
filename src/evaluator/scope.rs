@@ -17,7 +17,7 @@ impl<'a> EvaluatorScope<'a> {
         }
     }
 
-    pub fn child(parent: &EvaluatorScope) -> Self {
+    pub fn child(parent: &'a EvaluatorScope<'a>) -> Self {
         Self {
             expansions: HashMap::new(),
             parent: Some(parent),

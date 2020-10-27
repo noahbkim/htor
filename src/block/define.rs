@@ -41,7 +41,7 @@ impl MacroBlock for DefineBlock {
         } else {
             Ok(Rc::new(Self {
                 line_number,
-                name: args.pop().unwrap(),
+                name: args.remove(0),
                 parameters: args,
                 blocks,
             }))

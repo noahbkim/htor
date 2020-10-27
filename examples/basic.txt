@@ -1,5 +1,4 @@
-@define a
-    01 02 03 04
+@define a b
+    69 $b 69
 
-@repeat 5
-    03[8] < $a $a
+$a(01) $a(02)
