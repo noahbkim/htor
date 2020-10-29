@@ -7,15 +7,6 @@ use crate::error::AnonymousEvaluationErrorResult;
 use crate::error::EvaluationError;
 use crate::evaluator::expansion::Expansion;
 use crate::evaluator::scope::EvaluatorScope;
-use std::rc::Rc;
-
-enum BytesState {
-    None,
-    Bytes,
-    String,
-    StringEscaped,
-    Name,
-}
 
 pub struct BytesBlock {
     line_number: usize,

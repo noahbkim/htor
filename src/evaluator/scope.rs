@@ -1,6 +1,5 @@
 use crate::evaluator::expansion::Expansion;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 type Link<'a> = Option<&'a EvaluatorScope<'a>>;
 

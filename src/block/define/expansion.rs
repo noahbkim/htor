@@ -1,5 +1,5 @@
 use crate::block::Block;
-use crate::error::{AnonymousEvaluationError, EvaluationError};
+use crate::error::AnonymousEvaluationError;
 use crate::evaluator::evaluate;
 use crate::evaluator::expansion::{Expansion, InlineExpansion};
 use crate::evaluator::scope::EvaluatorScope;

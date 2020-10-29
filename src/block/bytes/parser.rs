@@ -53,7 +53,8 @@ fn parse_number(pair: Pair<Rule>) -> Result<BytesItem, AnonymousEvaluationError>
 
 fn decode_string(string: &str) -> Result<Vec<u8>, AnonymousEvaluationError> {
     let mut result: Vec<u8> = Vec::new();
-    for (i, character) in string[1..string.len() - 1].chars().enumerate() {
+
+    for (i, character) in string.chars().enumerate() {
         if character > (255 as char) {
             return Err(AnonymousEvaluationError::new(format!(
                 "encountered invalid character in column {}",

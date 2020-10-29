@@ -68,7 +68,7 @@ impl RawMacroBlock for AssemblyBlock {
         _args: Vec<String>,
         lines: Vec<String>,
     ) -> Result<Rc<Self>, EvaluationError> {
-        let contents: String = lines.iter().fold(String::new(), |a, v| a + v);
+        let contents: String = lines.iter().fold(String::new(), |a, v| a + v + "\n");
         let compiled: Vec<u8> = compile_assembly(&contents).map_err(|e| e.at(line_number))?;
         Ok(Rc::new(Self {
             line_number,

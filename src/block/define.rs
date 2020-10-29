@@ -2,7 +2,7 @@ mod expansion;
 
 use crate::block::define::expansion::DefineExpansion;
 use crate::block::{Block, MacroBlock};
-use crate::error::{AnonymousEvaluationError, EvaluationError};
+use crate::error::EvaluationError;
 use crate::evaluator::scope::EvaluatorScope;
 use std::rc::Rc;
 

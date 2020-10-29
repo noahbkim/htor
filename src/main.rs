@@ -16,7 +16,6 @@ use parser::parse;
 use std::fs::File;
 use std::io::{stdout, BufReader, Write};
 use std::process::exit;
-use std::rc::Rc;
 
 fn read(path: &str) -> Result<Vec<u8>, EvaluationError> {
     let file = match File::open(&path) {

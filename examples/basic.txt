@@ -1,0 +1,26 @@
+# Output FF in binary, decimal, and hex
+0b11111111 0d255 0xff ff
+
+# Output 0x42 left-padded to a width of 4 bytes
+[4]42
+
+# Output 0d420 right-padded to a width of 8 bytes
+0d420[0b1000]
+
+# Define a new macro that takes one argument: name
+@define greet name
+  "Hi, " $name
+
+# Define a macro that takes no arguments
+@define steak
+  DEADBEEF
+
+# Repeat the contents of this block two times
+@repeat 2
+  $greet($steak)
+
+# Output $steak with reverse endianness, then normal
+< $steak > $steak
+
+# Any normal expression may be placed in an argument
+$greet(< $steak)

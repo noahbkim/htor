@@ -1,8 +1,5 @@
-use crate::block::bytes::BytesBlock;
-use crate::block::Block;
 use crate::error::AnonymousEvaluationError;
 use crate::evaluator::scope::EvaluatorScope;
-use std::rc::Rc;
 
 pub trait Expansion {
     fn expand(

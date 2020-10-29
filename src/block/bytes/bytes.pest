@@ -1,5 +1,5 @@
 // Line should be parsed exhaustively
-line = _{ SOI ~ items ~ EOI }
+line = _{ SOI ~ items ~ ("#" | EOI) }
 
 // Items may have space between them
 items = { item* }
