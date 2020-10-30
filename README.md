@@ -44,7 +44,7 @@ If we build an run `htor -d examples/basic.txt`, we can see the debug hex of the
 FF FF FF FF 00 00 00 42  01 A4 00 00 00 00 00 00
 48 69 2C 20 DE AD BE EF  48 69 2C 20 DE AD BE EF
 EF BE AD DE DE AD BE EF  48 69 2C 20 01 02 03 04
-48 69 2C 20 20 2C 69 48  20 2C 69 48 20 2C 69 48s
+48 69 2C 20 20 2C 69 48  20 2C 69 48 20 2C 69 48
 ```
 
 ## Byte Expressions
