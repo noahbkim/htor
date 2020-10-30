@@ -27,22 +27,27 @@ impl Expansion for DefineExpansion {
         scope: &EvaluatorScope,
         args: &Vec<Vec<u8>>,
     ) -> Result<Vec<u8>, AnonymousEvaluationError> {
-        if self.parameters.len() != args.len() {
-            Err(AnonymousEvaluationError::new(format!(
+        let mut inner: EvaluatorScope = EvaluatorScope::child(scope);
+
+        if self.parameters.len() == 1 && args.len() == 0 {
+            let name: &String = self.parameters.first().unwrap();
+            inner.set(name, InlineExpansion::new(name.clone(), Vec::new()));
+        } else if self.parameters.len() != args.len() {
+            return Err(AnonymousEvaluationError::new(format!(
                 "expansion ${} expected {} args, got {}",
                 self.name,
                 self.parameters.len(),
                 args.len()
             )))
         } else {
-            let mut inner: EvaluatorScope = EvaluatorScope::child(scope);
             for (name, value) in self.parameters.iter().zip(args) {
                 inner.set(&name, InlineExpansion::new(name.clone(), value.clone()));
             }
-            let result: Vec<u8> = evaluate(&self.blocks, &inner).map_err(|e| {
-                AnonymousEvaluationError::new(format!("error while expanding definition:\n{}", e))
-            })?;
-            Ok(result)
-        }
+        };
+
+        let result: Vec<u8> = evaluate(&self.blocks, &inner).map_err(|e| {
+            AnonymousEvaluationError::new(format!("error while expanding definition:\n{}", e))
+        })?;
+        Ok(result)
     }
 }

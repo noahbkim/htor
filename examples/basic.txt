@@ -23,4 +23,6 @@
 < $steak > $steak
 
 # Any normal expression may be placed in an argument
-$greet(< $steak)
+$greet(< 02 01 > 03 04)
+$greet(< $greet())
+< $greet($greet)
